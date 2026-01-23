@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useWriteContract, usePublicClient, useAccount } from 'wagmi';
 import { parseEther, stringToHex } from 'viem';
 import { CallRegistryABI, ERC20ABI } from '../lib/abis';
+import { useChain } from './ChainProvider';
+import { useStellarWallet } from './StellarWalletProvider';
 
 export interface Call {
     id: string; // callOnchainId
@@ -37,7 +39,7 @@ export interface User {
 
 interface GlobalStateContextType {
     calls: Call[];
-    createCall: (call: Omit<Call, 'id' | 'creator' | 'status' | 'createdAt' | 'backers' | 'comments' | 'volume'>) => Promise<void>;
+    createCall: (call: Omit<Call, 'id' | 'creator' | 'status' | 'createdAt' | 'backers' | 'comments' | 'volume' | 'totalStakeYes' | 'totalStakeNo' | 'stakeToken' | 'endTs' | 'conditionJson'>) => Promise<void>;
     stakeOnCall: (callId: string, amount: number, type: 'back' | 'challenge') => Promise<void>;
     currentUser: User | null;
     isLoading: boolean;
@@ -47,8 +49,6 @@ interface GlobalStateContextType {
 
 const GlobalStateContext = createContext<GlobalStateContextType | undefined>(undefined);
 
-const INITIAL_CALLS: Call[] = [];
-
 export function GlobalStateProvider({ children }: { children: React.ReactNode }) {
     const [calls, setCalls] = useState<Call[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +56,15 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
 
     const { writeContractAsync } = useWriteContract();
     const publicClient = usePublicClient();
-    const { address, isConnected } = useAccount();
+    const { address: evmAddress, isConnected: isEvmConnected } = useAccount();
+
+    // Multi-chain support
+    const { selectedChain } = useChain();
+    const { publicKey: stellarAddress, isConnected: isStellarConnected } = useStellarWallet();
+
+    // Determine active wallet based on selected chain
+    const address = selectedChain === 'stellar' ? stellarAddress : evmAddress;
+    const isConnected = selectedChain === 'stellar' ? isStellarConnected : isEvmConnected;
 
     const fetchCalls = async () => {
         try {
@@ -99,7 +107,10 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
             const res = await fetch('http://localhost:3001/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet: address }),
+                body: JSON.stringify({
+                    wallet: address,
+                    chain: selectedChain,
+                }),
             });
             const user = await res.json();
             setCurrentUser(user);
@@ -138,9 +149,9 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         if (isConnected && address) {
             login();
         }
-    }, [isConnected, address]);
+    }, [isConnected, address, selectedChain]);
 
-    const createCall = async (newCallData: Omit<Call, 'id' | 'creator' | 'status' | 'createdAt' | 'backers' | 'comments' | 'volume'>) => {
+    const createCall = async (newCallData: Omit<Call, 'id' | 'creator' | 'status' | 'createdAt' | 'backers' | 'comments' | 'volume' | 'totalStakeYes' | 'totalStakeNo' | 'stakeToken' | 'endTs' | 'conditionJson'>) => {
         if (!currentUser) {
             alert("Please connect wallet first");
             return;

@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { rpc as SorobanRpc } from '@stellar/stellar-sdk';
 import * as StellarSdk from '@stellar/stellar-sdk';
@@ -52,7 +57,9 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Stellar Indexer initialized with RPC: ${this.config.rpcUrl}`,
     );
-    this.logger.log(`Monitoring contracts: ${this.config.contractIds.join(', ')}`);
+    this.logger.log(
+      `Monitoring contracts: ${this.config.contractIds.join(', ')}`,
+    );
   }
 
   async onModuleInit(): Promise<void> {
@@ -125,9 +132,7 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async fetchAndProcessEvents(
-    retryCount = 0,
-  ): Promise<void> {
+  private async fetchAndProcessEvents(retryCount = 0): Promise<void> {
     try {
       const latestLedger = await this.sorobanRpc.getLatestLedger();
       const toLedger = latestLedger.sequence;
@@ -142,7 +147,11 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
       );
 
       for (const contractId of this.config.contractIds) {
-        await this.fetchContractEvents(contractId, this.currentLedger, toLedger);
+        await this.fetchContractEvents(
+          contractId,
+          this.currentLedger,
+          toLedger,
+        );
       }
 
       this.currentLedger = toLedger + 1;
@@ -155,8 +164,10 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
         return this.fetchAndProcessEvents(retryCount + 1);
       }
 
-
-      this.logger.error('Max retries reached, skipping this poll cycle:', error);
+      this.logger.error(
+        'Max retries reached, skipping this poll cycle:',
+        error,
+      );
     }
   }
 
@@ -233,7 +244,6 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-
   private getEventType(topics: StellarSdk.xdr.ScVal[]): string {
     // The first topic typically contains the event type as a symbol
     if (topics.length === 0) {
@@ -246,7 +256,6 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
       const symbol = topics[0].sym().toString();
       return this.mapEventTypeName(symbol);
     }
-
 
     return 'Unknown';
   }
@@ -312,8 +321,8 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
         const addr = scVal.address();
         return addr.switch().name === 'scAddressTypeAccount'
           ? StellarSdk.StrKey.encodeEd25519PublicKey(
-            Buffer.from(addr.accountId().ed25519()),
-          )
+              Buffer.from(addr.accountId().ed25519()),
+            )
           : addr.contractId().toString();
 
       case StellarSdk.xdr.ScValType.scvVec():
@@ -334,7 +343,6 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
 
       case StellarSdk.xdr.ScValType.scvBool():
         return scVal.b();
-
 
       default:
         return null;
@@ -424,8 +432,7 @@ export class StellarIndexerService implements OnModuleInit, OnModuleDestroy {
 
     const eventsByType: Record<string, number> = {};
     for (const event of events) {
-      eventsByType[event.eventType] =
-        (eventsByType[event.eventType] || 0) + 1;
+      eventsByType[event.eventType] = (eventsByType[event.eventType] || 0) + 1;
     }
 
     return {

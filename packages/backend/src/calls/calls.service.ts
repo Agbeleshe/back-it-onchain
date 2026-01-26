@@ -8,7 +8,7 @@ export class CallsService {
   constructor(
     @InjectRepository(Call)
     private callsRepository: Repository<Call>,
-  ) { }
+  ) {}
 
   async create(callData: Partial<Call>): Promise<Call> {
     const call = this.callsRepository.create(callData);
@@ -20,7 +20,7 @@ export class CallsService {
     return this.callsRepository.find({
       where,
       order: { createdAt: 'DESC' },
-      relations: ['creator']
+      relations: ['creator'],
     });
   }
 

@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Call, ChainType } from '../entities/call.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,9 +26,7 @@ export class BaseIndexerService implements OnModuleInit, OnModuleDestroy {
   private currentBlock: number;
   private config: BaseIndexerConfig;
 
-  constructor(
-    private callRepository: Repository<Call>,
-  ) { }
+  constructor(private callRepository: Repository<Call>) {}
 
   async initialize(config: BaseIndexerConfig): Promise<void> {
     this.config = {
@@ -35,9 +38,7 @@ export class BaseIndexerService implements OnModuleInit, OnModuleDestroy {
 
     this.currentBlock = this.config.startBlock || 1;
 
-    this.logger.log(
-      `Base Indexer initialized with RPC: ${this.config.rpcUrl}`,
-    );
+    this.logger.log(`Base Indexer initialized with RPC: ${this.config.rpcUrl}`);
     this.logger.log(`Monitoring contract: ${this.config.contractAddress}`);
   }
 
@@ -116,8 +117,10 @@ export class BaseIndexerService implements OnModuleInit, OnModuleDestroy {
         return this.fetchAndProcessEvents(retryCount + 1);
       }
 
-
-      this.logger.error('Max retries reached, skipping this poll cycle:', error);
+      this.logger.error(
+        'Max retries reached, skipping this poll cycle:',
+        error,
+      );
     }
   }
 

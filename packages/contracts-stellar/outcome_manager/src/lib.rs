@@ -1,13 +1,13 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, crypto, symbol_short, vec, Address, Bytes, BytesN,
-    Env, Symbol, Vec, Map, U256,
+    contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN,
+    Env, Symbol, Map,
 };
 
 const OWNER: Symbol = symbol_short!("OWNER");
 const ORACLES: Symbol = symbol_short!("ORACLES");
 const CALLS: Symbol = symbol_short!("CALLS");
-const WITHDRAWALS: Symbol = symbol_short!("WITHDRAWALS");
+const WITHDRAWALS: Symbol = symbol_short!("WITHDRAW");
 const CALL_REGISTRY: Symbol = symbol_short!("CALL_REG");
 
 #[contracttype]
@@ -34,21 +34,9 @@ pub struct StakeData {
 #[contracttype]
 #[derive(Clone)]
 pub enum Event {
-    OutcomeSubmitted {
-        call_id: u64,
-        outcome: bool,
-        final_price: u128,
-        oracle: Address,
-    },
-    PayoutWithdrawn {
-        call_id: u64,
-        user: Address,
-        amount: u128,
-    },
-    OracleUpdated {
-        oracle: Address,
-        authorized: bool,
-    },
+    OutcomeSubmitted(u64, bool, u128, BytesN<32>),
+    PayoutWithdrawn(u64, Address, u128),
+    OracleUpdated(BytesN<32>, bool),
 }
 
 #[contract]
@@ -68,7 +56,7 @@ impl OutcomeManagerContract {
         storage.set(&CALL_REGISTRY, &call_registry);
 
         // Initialize empty oracles map
-        let oracles: Map<Address, bool> = Map::new(&env);
+        let oracles: Map<BytesN<32>, bool> = Map::new(&env);
         storage.set(&ORACLES, &oracles);
 
         // Initialize empty calls map
@@ -81,29 +69,26 @@ impl OutcomeManagerContract {
     }
 
     /// Set oracle authorization status (owner only)
-    pub fn set_oracle(env: Env, oracle: Address, authorized: bool) {
+    pub fn set_oracle(env: Env, oracle: BytesN<32>, authorized: bool) {
         let storage = env.storage().instance();
         let owner: Address = storage.get(&OWNER).unwrap();
 
         owner.require_auth();
 
-        let mut oracles: Map<Address, bool> = storage.get(&ORACLES).unwrap();
+        let mut oracles: Map<BytesN<32>, bool> = storage.get(&ORACLES).unwrap();
         oracles.set(oracle.clone(), authorized);
         storage.set(&ORACLES, &oracles);
 
         env.events().publish(
             (Symbol::new(&env, "oracle_updated"),),
-            Event::OracleUpdated {
-                oracle,
-                authorized,
-            },
+            Event::OracleUpdated(oracle, authorized),
         );
     }
 
     /// Check if an oracle is authorized
-    pub fn is_authorized_oracle(env: Env, oracle: Address) -> bool {
+    pub fn is_authorized_oracle(env: Env, oracle: BytesN<32>) -> bool {
         let storage = env.storage().instance();
-        let oracles: Map<Address, bool> = storage.get(&ORACLES).unwrap_or_else(|| Map::new(&env));
+        let oracles: Map<BytesN<32>, bool> = storage.get(&ORACLES).unwrap_or_else(|| Map::new(&env));
         oracles
             .get(oracle)
             .map(|v| v)
@@ -135,46 +120,44 @@ impl OutcomeManagerContract {
 
         // Construct message for signature verification
         // Format: call_id (8 bytes) + outcome (1 byte) + final_price (16 bytes) + timestamp (8 bytes)
-        let mut message_vec = vec![&env];
+        let mut message = Bytes::new(&env);
         
         // Add call_id (u64 big-endian)
-        message_vec.push_back(((call_id >> 56) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 48) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 40) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 32) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 24) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 16) & 0xFF) as u32);
-        message_vec.push_back(((call_id >> 8) & 0xFF) as u32);
-        message_vec.push_back((call_id & 0xFF) as u32);
+        message.push_back((call_id >> 56) as u8);
+        message.push_back(((call_id >> 48) & 0xFF) as u8);
+        message.push_back(((call_id >> 40) & 0xFF) as u8);
+        message.push_back(((call_id >> 32) & 0xFF) as u8);
+        message.push_back(((call_id >> 24) & 0xFF) as u8);
+        message.push_back(((call_id >> 16) & 0xFF) as u8);
+        message.push_back(((call_id >> 8) & 0xFF) as u8);
+        message.push_back((call_id & 0xFF) as u8);
 
         // Add outcome (1 byte)
-        message_vec.push_back(if outcome { 1 } else { 0 });
+        message.push_back(if outcome { 1u8 } else { 0u8 });
 
         // Add final_price (u128 big-endian, 16 bytes)
         for i in (0..16).rev() {
-            message_vec.push_back(((final_price >> (i * 8)) & 0xFF) as u32);
+            message.push_back(((final_price >> (i * 8)) & 0xFF) as u8);
         }
 
         // Add timestamp (u64 big-endian)
-        message_vec.push_back(((timestamp >> 56) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 48) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 40) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 32) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 24) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 16) & 0xFF) as u32);
-        message_vec.push_back(((timestamp >> 8) & 0xFF) as u32);
-        message_vec.push_back((timestamp & 0xFF) as u32);
-
-        let message = Bytes::from_array(&env, &message_vec);
+        message.push_back((timestamp >> 56) as u8);
+        message.push_back(((timestamp >> 48) & 0xFF) as u8);
+        message.push_back(((timestamp >> 40) & 0xFF) as u8);
+        message.push_back(((timestamp >> 32) & 0xFF) as u8);
+        message.push_back(((timestamp >> 24) & 0xFF) as u8);
+        message.push_back(((timestamp >> 16) & 0xFF) as u8);
+        message.push_back(((timestamp >> 8) & 0xFF) as u8);
+        message.push_back((timestamp & 0xFF) as u8);
 
         // Verify ed25519 signature
         env.crypto()
             .ed25519_verify(&oracle_pubkey, &message, &signature);
 
         // Verify signer is an authorized oracle
-        let oracles: Map<Address, bool> = storage.get(&ORACLES).unwrap_or_else(|| Map::new(&env));
+        let oracles: Map<BytesN<32>, bool> = storage.get(&ORACLES).unwrap_or_else(|| Map::new(&env));
         let is_authorized = oracles
-            .get(Address::from_contract_id(&env, &oracle_pubkey))
+            .get(oracle_pubkey.clone())
             .map(|v| v)
             .unwrap_or_else(|| false);
 
@@ -193,12 +176,12 @@ impl OutcomeManagerContract {
         // Emit event
         env.events().publish(
             (Symbol::new(&env, "outcome_submitted"),),
-            Event::OutcomeSubmitted {
+            Event::OutcomeSubmitted(
                 call_id,
                 outcome,
                 final_price,
-                oracle: Address::from_contract_id(&env, &oracle_pubkey),
-            },
+                oracle_pubkey,
+            ),
         );
 
         true
@@ -259,7 +242,7 @@ impl OutcomeManagerContract {
         }
 
         let outcome = call_data.outcome.unwrap();
-        let mut payout: u128 = 0;
+        let payout: u128;
 
         // Calculate payout based on user's side and outcome
         if user_side == outcome {
@@ -291,11 +274,7 @@ impl OutcomeManagerContract {
         // Emit event
         env.events().publish(
             (Symbol::new(&env, "payout_withdrawn"),),
-            Event::PayoutWithdrawn {
-                call_id,
-                user,
-                amount: payout,
-            },
+            Event::PayoutWithdrawn(call_id, user, payout),
         );
 
         payout

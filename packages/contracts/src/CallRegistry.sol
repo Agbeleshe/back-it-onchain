@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract CallRegistry is ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -17,7 +17,7 @@ contract CallRegistry is ReentrancyGuard {
         uint256 endTs;
         address tokenAddress;
         bytes32 pairId;
-        string ipfsCID;
+        string ipfsCid;
         bool settled;
         bool outcome;
         uint256 finalPrice;
@@ -37,7 +37,7 @@ contract CallRegistry is ReentrancyGuard {
         uint256 endTs,
         address tokenAddress,
         bytes32 pairId,
-        string ipfsCID
+        string ipfsCid
     );
 
     event StakeAdded(uint256 indexed callId, address indexed staker, bool position, uint256 amount);
@@ -48,7 +48,7 @@ contract CallRegistry is ReentrancyGuard {
         uint256 _endTs,
         address _tokenAddress,
         bytes32 _pairId,
-        string memory _ipfsCID
+        string memory _ipfsCid
     ) external nonReentrant {
         require(_endTs > block.timestamp, "End time must be in future");
         require(_stakeAmount > 0, "Stake amount must be > 0");
@@ -65,7 +65,7 @@ contract CallRegistry is ReentrancyGuard {
             endTs: _endTs,
             tokenAddress: _tokenAddress,
             pairId: _pairId,
-            ipfsCID: _ipfsCID,
+            ipfsCid: _ipfsCid,
             settled: false,
             outcome: false,
             finalPrice: 0
@@ -75,7 +75,7 @@ contract CallRegistry is ReentrancyGuard {
         userStakes[callId][msg.sender][true] = _stakeAmount;
 
         emit CallCreated(
-            callId, msg.sender, _stakeToken, _stakeAmount, block.timestamp, _endTs, _tokenAddress, _pairId, _ipfsCID
+            callId, msg.sender, _stakeToken, _stakeAmount, block.timestamp, _endTs, _tokenAddress, _pairId, _ipfsCid
         );
     }
 

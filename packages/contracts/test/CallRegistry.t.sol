@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "../src/CallRegistry.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Test} from "forge-std/Test.sol";
+import {CallRegistry} from "../src/CallRegistry.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock", "MCK") {
@@ -21,8 +21,9 @@ contract CallRegistryTest is Test {
         registry = new CallRegistry();
         token = new MockERC20();
 
-        token.transfer(user1, 1000 * 10 ** 18);
-        token.transfer(user2, 1000 * 10 ** 18);
+        bool success1 = token.transfer(user1, 1000 * 10 ** 18);
+        bool success2 = token.transfer(user2, 1000 * 10 ** 18);
+        require(success1 && success2, "Transfer failed");
 
         vm.prank(user1);
         token.approve(address(registry), type(uint256).max);

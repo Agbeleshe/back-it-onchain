@@ -176,9 +176,9 @@ describe('OracleService', () => {
       const serviceWithoutKey =
         moduleWithoutKey.get<OracleService>(OracleService);
 
-      await expect(
+      expect(() =>
         serviceWithoutKey.signStellarOutcome(1, true, 1000, 1234567890),
-      ).rejects.toThrow('Stellar keypair not configured');
+      ).toThrow('Stellar keypair not configured');
     });
   });
 

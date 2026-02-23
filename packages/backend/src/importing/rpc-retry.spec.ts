@@ -10,7 +10,7 @@ import {
   RpcExhaustedError,
   RpcNonRetryableError,
   defaultSorobanIsRetryable,
-} from '../rpc/rpc-retry.util';
+} from '../common/rpc/rpc-retry.util';
 import { Retryable } from '../decorators/retryable.decorator';
 
 // ── Suppress logger noise in tests ──────────────────────────────────────────

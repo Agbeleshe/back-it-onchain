@@ -13,9 +13,9 @@
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SorobanRpc, Contract, xdr, scValToNative, Address } from '@stellar/stellar-sdk';
+import { rpc, Contract, xdr, scValToNative, Address } from '@stellar/stellar-sdk';
 import { Retryable } from '../decorators/retryable.decorator';
-import { defaultSorobanIsRetryable, RpcExhaustedError } from '../rpc/rpc-retry.util';
+import { defaultSorobanIsRetryable, RpcExhaustedError } from '../common/rpc/rpc-retry.util';
 
 export interface SorobanEvent {
   id: string;
@@ -36,25 +36,25 @@ export interface ContractDataResult {
 @Injectable()
 export class SorobanRpcClient implements OnModuleInit {
   private readonly logger = new Logger(SorobanRpcClient.name);
-  private rpc: SorobanRpc.Server;
+  private rpc: rpc.Server;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) { }
 
   onModuleInit() {
     const rpcUrl = this.config.get<string>('SOROBAN_RPC_URL', 'https://soroban-testnet.stellar.org');
-    this.rpc = new SorobanRpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+    this.rpc = new rpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
     this.logger.log(`Soroban RPC client initialised → ${rpcUrl}`);
   }
 
   // ─── Health / connectivity ──────────────────────────────────────────────
 
   @Retryable({ maxAttempts: 3, operationName: 'soroban:getHealth' })
-  async getHealth(): Promise<SorobanRpc.Api.GetHealthResponse> {
+  async getHealth(): Promise<rpc.Api.GetHealthResponse> {
     return this.rpc.getHealth();
   }
 
   @Retryable({ maxAttempts: 3, operationName: 'soroban:getLatestLedger' })
-  async getLatestLedger(): Promise<SorobanRpc.Api.GetLatestLedgerResponse> {
+  async getLatestLedger(): Promise<rpc.Api.GetLatestLedgerResponse> {
     return this.rpc.getLatestLedger();
   }
 
@@ -73,7 +73,7 @@ export class SorobanRpcClient implements OnModuleInit {
   async getContractData(
     contractId: string,
     key: xdr.ScVal,
-    durability: SorobanRpc.Api.Durability = SorobanRpc.Api.Durability.Persistent,
+    durability: rpc.Durability = rpc.Durability.Persistent,
   ): Promise<ContractDataResult | null> {
     try {
       const response = await this.rpc.getContractData(contractId, key, durability);
@@ -82,8 +82,8 @@ export class SorobanRpcClient implements OnModuleInit {
 
       return {
         key: key.toXDR('base64'),
-        value: scValToNative(response.val.val()),
-        lastModifiedLedger: response.lastModifiedLedgerSeq,
+        value: scValToNative(response.val.contractData().val()),
+        lastModifiedLedger: response.lastModifiedLedgerSeq || 0,
       };
     } catch (err) {
       // "entry not found" is not a network error — don't retry
@@ -112,8 +112,8 @@ export class SorobanRpcClient implements OnModuleInit {
   }): Promise<SorobanEvent[]> {
     const { startLedger, contractIds, eventTypes = ['contract'], limit = 200 } = params;
 
-    const filters: SorobanRpc.Api.EventFilter[] = contractIds.map((id) => ({
-      type: eventTypes[0] as SorobanRpc.Api.EventFilter['type'],
+    const filters: rpc.Api.EventFilter[] = contractIds.map((id) => ({
+      type: eventTypes[0] as rpc.Api.EventFilter['type'],
       contractIds: [id],
     }));
 
@@ -128,7 +128,7 @@ export class SorobanRpcClient implements OnModuleInit {
       type: e.type,
       ledger: e.ledger,
       ledgerClosedAt: e.ledgerClosedAt,
-      contractId: e.contractId,
+      contractId: e.contractId?.toString() ?? '',
       topic: e.topic.map(scValToNative),
       value: scValToNative(e.value),
     }));
@@ -147,8 +147,8 @@ export class SorobanRpcClient implements OnModuleInit {
     operationName: 'soroban:simulateTransaction',
   })
   async simulateTransaction(
-    transaction: Parameters<SorobanRpc.Server['simulateTransaction']>[0],
-  ): Promise<SorobanRpc.Api.SimulateTransactionResponse> {
+    transaction: Parameters<rpc.Server['simulateTransaction']>[0],
+  ): Promise<rpc.Api.SimulateTransactionResponse> {
     return this.rpc.simulateTransaction(transaction);
   }
 
@@ -163,8 +163,8 @@ export class SorobanRpcClient implements OnModuleInit {
     operationName: 'soroban:sendTransaction',
   })
   async sendTransaction(
-    transaction: Parameters<SorobanRpc.Server['sendTransaction']>[0],
-  ): Promise<SorobanRpc.Api.SendTransactionResponse> {
+    transaction: Parameters<rpc.Server['sendTransaction']>[0],
+  ): Promise<rpc.Api.SendTransactionResponse> {
     return this.rpc.sendTransaction(transaction);
   }
 
@@ -181,10 +181,10 @@ export class SorobanRpcClient implements OnModuleInit {
   })
   async getTransaction(
     hash: string,
-  ): Promise<SorobanRpc.Api.GetTransactionResponse> {
+  ): Promise<rpc.Api.GetTransactionResponse> {
     const result = await this.rpc.getTransaction(hash);
     // NOT_FOUND means still pending — treat as retriable
-    if (result.status === SorobanRpc.Api.GetTransactionStatus.NOT_FOUND) {
+    if (result.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
       throw new Error(`Transaction ${hash} still pending (NOT_FOUND)`);
     }
     return result;
@@ -197,9 +197,9 @@ export class SorobanRpcClient implements OnModuleInit {
    * Combines sendTransaction + getTransaction into a single awaitable call.
    */
   async sendAndConfirm(
-    transaction: Parameters<SorobanRpc.Server['sendTransaction']>[0],
+    transaction: Parameters<rpc.Server['sendTransaction']>[0],
     timeoutMs = 60_000,
-  ): Promise<SorobanRpc.Api.GetTransactionResponse> {
+  ): Promise<rpc.Api.GetTransactionResponse> {
     const sendResult = await this.sendTransaction(transaction);
 
     if (sendResult.status === 'ERROR') {

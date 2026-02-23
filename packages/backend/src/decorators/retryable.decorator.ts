@@ -13,7 +13,7 @@
  * async getOraclePrice() { ... }
  */
 
-import { withRetry, RetryOptions, defaultSorobanIsRetryable } from '../rpc/rpc-retry.util';
+import { withRetry, RetryOptions, defaultSorobanIsRetryable } from '../common/rpc/rpc-retry.util';
 
 /**
  * @Retryable(maxAttempts)
@@ -47,13 +47,13 @@ export function Retryable(optionsOrMaxAttempts: number | RetryOptions) {
   const options: RetryOptions =
     typeof optionsOrMaxAttempts === 'number'
       ? {
-          maxAttempts: optionsOrMaxAttempts,
-          isRetryable: defaultSorobanIsRetryable,
-        }
+        maxAttempts: optionsOrMaxAttempts,
+        isRetryable: defaultSorobanIsRetryable,
+      }
       : {
-          isRetryable: defaultSorobanIsRetryable,
-          ...optionsOrMaxAttempts,
-        };
+        isRetryable: defaultSorobanIsRetryable,
+        ...optionsOrMaxAttempts,
+      };
 
   return function (
     target: object,

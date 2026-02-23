@@ -5,7 +5,8 @@ import { Repository } from 'typeorm';
 import { ethers } from 'ethers';
 import { Call } from '../calls/call.entity';
 import { AuthService } from '../auth/auth.service';
-import { RpcExhaustedError, Retryable, withRetry } from '../oracle/oracle.service';
+import { RpcExhaustedError, withRetry } from '../common/rpc/rpc-retry.util';
+import { Retryable } from '../decorators/retryable.decorator';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ export class IndexerService implements OnModuleInit {
 
       this.logger.log(
         `Found ${callCreatedEvents.length} historical CallCreated events ` +
-          `and ${stakeAddedEvents.length} StakeAdded events`,
+        `and ${stakeAddedEvents.length} StakeAdded events`,
       );
 
       for (const event of callCreatedEvents) {
@@ -235,7 +236,7 @@ export class IndexerService implements OnModuleInit {
   ): Promise<void> {
     this.logger.log(
       `Processing StakeAdded to Call ${callId}: ` +
-        `${ethers.formatUnits(amount, 18)} on ${position ? 'YES' : 'NO'} by ${staker}`,
+      `${ethers.formatUnits(amount, 18)} on ${position ? 'YES' : 'NO'} by ${staker}`,
     );
 
     const call = await this.callsRepository.findOne({
@@ -311,8 +312,7 @@ export class IndexerService implements OnModuleInit {
             maxAttempts: 3,
             baseDelayMs: 500,
             operationName: `indexer:fetchIpfs:${url.split('/ipfs/')[0]}`,
-          },
-          this.logger,
+          }
         );
 
         this.logger.log(`IPFS data fetched for ${cid} via ${url}`);
@@ -389,7 +389,7 @@ export class IndexerService implements OnModuleInit {
     if (this.reconnectCount >= LISTENER_MAX_RECONNECTS) {
       this.logger.error(
         `Live listener failed to reconnect after ${LISTENER_MAX_RECONNECTS} attempts — giving up. ` +
-          `Restart the service to resume real-time indexing.`,
+        `Restart the service to resume real-time indexing.`,
       );
       return;
     }

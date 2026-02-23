@@ -12,23 +12,23 @@ import { Repository } from 'typeorm';
 import { computeReputationScore } from './reputation.util';
 
 // --- Replace User / Call with your actual entity imports ---
-// import { User } from '../users/entities/user.entity';
-// import { Call } from '../calls/entities/call.entity';
+import { User } from '../users/user.entity';
+import { Call } from '../calls/call.entity';
 
 @Injectable()
 export class ReputationScoreSnippet {
   constructor(
-    @InjectRepository('User') private readonly userRepo: Repository<any>,
-    @InjectRepository('Call') private readonly callRepo: Repository<any>,
-  ) {}
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Call) private readonly callRepo: Repository<Call>,
+  ) { }
 
   async computeAndPersistReputation(userId: string): Promise<number> {
     const [totalResolvedCalls, winCount] = await Promise.all([
       this.callRepo.count({
-        where: { userId, status: 'resolved' },
+        where: { creatorWallet: userId, status: 'resolved' },
       }),
       this.callRepo.count({
-        where: { userId, status: 'resolved', outcome: 'win' },
+        where: { creatorWallet: userId, status: 'resolved', outcome: true },
       }),
     ]);
 
@@ -37,14 +37,14 @@ export class ReputationScoreSnippet {
       winCount,
     });
 
-    await this.userRepo.update({ id: userId }, { reputationScore });
+    await this.userRepo.update({ wallet: userId }, { reputationScore });
 
     return reputationScore;
   }
 
   async getReputationScore(userId: string): Promise<number> {
     const user = await this.userRepo.findOne({
-      where: { id: userId },
+      where: { wallet: userId },
       select: ['reputationScore'],
     });
 

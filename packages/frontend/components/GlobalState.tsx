@@ -36,6 +36,7 @@ export interface User {
   handle?: string;
   bio?: string;
   avatarCid?: string;
+  referredBy?: string;
   avatar?: string; // Legacy UI
 }
 
@@ -46,6 +47,7 @@ interface GlobalStateContextType {
   currentUser: User | null;
   isLoading: boolean;
   login: () => Promise<void>;
+  setPendingReferrerWallet: (referrerWallet: string | null) => void;
   updateProfile: (data: { handle: string; bio: string }) => Promise<void>;
 }
 
@@ -69,6 +71,9 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
   const [calls, setCalls] = useState<Call[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [pendingReferrerWallet, setPendingReferrerWallet] = useState<
+    string | null
+  >(null);
 
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
@@ -116,11 +121,13 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         body: JSON.stringify({
           wallet: address,
           chain: selectedChain,
+          referrerWallet: pendingReferrerWallet ?? undefined,
         }),
       });
       if (res.ok) {
         const user = await res.json();
         setCurrentUser(user);
+        setPendingReferrerWallet(null);
       }
     } catch (error) {
       if (isNetworkError(error)) {
@@ -321,6 +328,7 @@ export function GlobalStateProvider({ children }: { children: React.ReactNode })
         currentUser,
         isLoading,
         login,
+        setPendingReferrerWallet,
         updateProfile,
       }}
     >

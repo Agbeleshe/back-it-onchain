@@ -8,6 +8,7 @@ import { useGlobalState } from './GlobalState';
 import { cn } from '@/lib/utils';
 
 interface NotificationBellProps {
+  userWallet?: string;
   pollingInterval?: number; // in milliseconds, default 30000 (30 seconds)
 }
 
@@ -16,10 +17,11 @@ const API_BASE_URL = (
 ).replace(/\/+$/, "");
 
 export function NotificationBell({
+  userWallet: propWallet,
   pollingInterval = 30000,
 }: NotificationBellProps) {
   const { currentUser } = useGlobalState();
-  const userWallet = currentUser?.wallet;
+  const userWallet = propWallet || currentUser?.wallet;
   
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
